@@ -8,6 +8,7 @@ const includeApi = [
   "/api/orders",
   "/api/getorder",
   // "/api/getallorders",
+  "/api/cart/clear",
 ];
 export function verifyJwt(req, res, next) {
   if (!includeApi.includes(req.path)) return next();

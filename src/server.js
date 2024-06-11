@@ -2,6 +2,7 @@ import { applyRouts } from "./middleware/route.js";
 import { routs } from "./service/index.route.js";
 import { config } from "dotenv";
 import express from "express";
+// import axios from "axios";
 import mongoose from "mongoose";
 import cors from "cors";
 import { verifyJwt } from "./middleware/JWT.js";
@@ -108,6 +109,22 @@ const orderSchema = new Schema(
 const Order = model("Order", orderSchema);
 
 applyRouts(routs, app);
+
+// Fetch data from the FakeStore API and insert into MongoDB on server startup
+// const fetchData = async () => {
+//   try {
+//     const response = await axios.get("https://fakestoreapi.com/products");
+//     const products = response.data;
+//     // Insert products into MongoDB collection
+//     await Product.insertMany(products);
+//     console.log("Products inserted successfully");
+//   } catch (error) {
+//     console.error("Error fetching or inserting products:", error);
+//   }
+// };
+
+// Call fetchData function to fetch and insert products
+// fetchData();
 
 app.post("/api/products", async (req, res) => {
   try {
@@ -284,6 +301,22 @@ app.delete("/api/cart/remove/:productId", async (req, res) => {
     // Handle errors
     console.error("Error removing item from cart:", error);
     return res.status(500).json({ message: "Internal server error" });
+  }
+});
+//to clear the cart
+app.post("/api/cart/clear", async (req, res) => {
+  try {
+    const userId = req.userId;
+
+    // Delete all cart items for the user
+    await Cart.deleteMany({ userId });
+
+    // Respond with a success message
+    res.status(200).json({ message: "Cart cleared successfully" });
+  } catch (error) {
+    // Handle errors
+    console.error("Error clearing the cart:", error);
+    res.status(500).json({ message: "Internal server error" });
   }
 });
 
