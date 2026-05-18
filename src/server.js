@@ -2,7 +2,7 @@ import { applyRouts } from "./middleware/route.js";
 import { routs } from "./service/index.route.js";
 import { config } from "dotenv";
 import express from "express";
-// import axios from "axios";
+import axios from "axios";
 import mongoose from "mongoose";
 import cors from "cors";
 import { verifyJwt } from "./middleware/JWT.js";
@@ -102,7 +102,7 @@ const orderSchema = new Schema(
     totalPrice: Number, // Total price of the order
     deliveryStatus: { type: Boolean, default: false }, // Delivery status
   },
-  { timestamps: true }
+  { timestamps: true },
 ); // Enable timestamps
 
 // Create a model based on the schema
@@ -110,21 +110,23 @@ const Order = model("Order", orderSchema);
 
 applyRouts(routs, app);
 
-// Fetch data from the FakeStore API and insert into MongoDB on server startup
-// const fetchData = async () => {
-//   try {
-//     const response = await axios.get("https://fakestoreapi.com/products");
-//     const products = response.data;
-//     // Insert products into MongoDB collection
-//     await Product.insertMany(products);
-//     console.log("Products inserted successfully");
-//   } catch (error) {
-//     console.error("Error fetching or inserting products:", error);
-//   }
-// };
+const fetchData = async () => {
+  try {
+    const response = await axios.get("https://fakestoreapi.com/products");
 
-// Call fetchData function to fetch and insert products
-// fetchData();
+    const products = response.data;
+
+    // Delete old products
+    await Product.deleteMany();
+
+    // Insert fresh products
+    await Product.insertMany(products);
+
+    console.log("Fresh products inserted successfully");
+  } catch (error) {
+    console.error("Error fetching or inserting products:", error);
+  }
+};
 
 app.post("/api/products", async (req, res) => {
   try {
@@ -207,7 +209,7 @@ app.put("/api/users/:userId/edit-email", async (req, res) => {
     const updatedUser = await User.findByIdAndUpdate(
       userId,
       { email },
-      { new: true }
+      { new: true },
     );
 
     if (!updatedUser) {
@@ -436,7 +438,7 @@ app.put("/api/orders/:orderId/update-delivery-status", async (req, res) => {
     const updatedOrder = await Order.findByIdAndUpdate(
       orderId,
       { deliveryStatus: true }, // Set deliveryStatus to true
-      { new: true } // Return the updated order
+      { new: true }, // Return the updated order
     );
 
     // Check if the order exists and was updated successfully
@@ -456,6 +458,8 @@ app.put("/api/orders/:orderId/update-delivery-status", async (req, res) => {
 });
 
 // Start the server
+await fetchData();
+
 app.listen(PORT, () => {
   console.log(`Server is running on http://localhost:${PORT}`);
 });
