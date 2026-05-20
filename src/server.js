@@ -11,7 +11,15 @@ config();
 const app = express();
 const PORT = process.env.PORT || 5000;
 
-app.use(cors());
+// ✅ CORS fix - allow requests from Vercel frontend
+app.use(
+  cors({
+    origin: "https://mern-frontend-phi-bice.vercel.app",
+    methods: ["GET", "POST", "PUT", "DELETE"],
+    credentials: true,
+  }),
+);
+
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(verifyJwt);
@@ -19,16 +27,11 @@ const url = process.env.URL;
 
 try {
   // MongoDB Connection
-  await mongoose.connect(url, {
-    useNewUrlParser: true,
-    useUnifiedTopology: true,
-  });
+  await mongoose.connect(url);
   console.log("Connected to MongoDB");
 } catch (error) {
   console.error("MongoDB connection error:", error);
 }
-
-//Define a schema for the cart model
 
 // Define a schema for the user model
 const { Schema, model } = mongoose;
@@ -58,7 +61,7 @@ const productSchema = new Schema({
 // Create a model based on the schema
 export const Product = model("Product", productSchema);
 
-//create schema for the cart model
+// Create schema for the cart model
 const cartSchema = new Schema({
   id: Number,
   userId: String,
@@ -66,7 +69,7 @@ const cartSchema = new Schema({
   quantity: Number,
 });
 
-//create a model based on the schema
+// Create a model based on the schema
 export const Cart = model("Cart", cartSchema);
 
 const addressSchema = new mongoose.Schema({
@@ -87,9 +90,8 @@ const Address = mongoose.model("Address", addressSchema);
 // Define a schema for the order model
 const orderSchema = new Schema(
   {
-    userId: String, // User ID
+    userId: String,
     address: {
-      // Address details
       name: String,
       phoneNumber: String,
       pincode: String,
@@ -98,12 +100,12 @@ const orderSchema = new Schema(
       city: String,
       country: String,
     },
-    products: [String], // Array of products
-    totalPrice: Number, // Total price of the order
-    deliveryStatus: { type: Boolean, default: false }, // Delivery status
+    products: [String],
+    totalPrice: Number,
+    deliveryStatus: { type: Boolean, default: false },
   },
   { timestamps: true },
-); // Enable timestamps
+);
 
 // Create a model based on the schema
 const Order = model("Order", orderSchema);
@@ -128,12 +130,21 @@ const fetchData = async () => {
   }
 };
 
+// ✅ Manual trigger route to refresh products anytime from browser
+app.get("/api/refresh-products", async (req, res) => {
+  try {
+    await fetchData();
+    res.status(200).json({ message: "Products refreshed successfully!" });
+  } catch (error) {
+    res.status(500).json({ message: "Failed to refresh products" });
+  }
+});
+
 app.post("/api/products", async (req, res) => {
   try {
     console.log(req.body);
     const { title, price, description, category, image, rating } = req.body;
 
-    // Create a new product instance
     const newProduct = new Product({
       id: Math.floor(Math.random() * 1000),
       title,
@@ -144,15 +155,12 @@ app.post("/api/products", async (req, res) => {
       rating,
     });
 
-    // Save the new product to the database
     await newProduct.save();
 
-    // Respond with a success message
     res
       .status(201)
       .json({ message: "Product added successfully", product: newProduct });
   } catch (error) {
-    // Handle errors
     console.error("Error adding product:", error);
     res.status(500).json({ message: "Internal server error" });
   }
@@ -171,6 +179,7 @@ app.delete("/api/products/:productId", async (req, res) => {
     return res.status(500).json({ message: "Internal server error" });
   }
 });
+
 app.get("/api/products/:productId", async (req, res) => {
   try {
     const productId = req.params.productId;
@@ -188,7 +197,6 @@ app.get("/api/products/:productId", async (req, res) => {
 app.delete("/api/users/:userId", async (req, res) => {
   try {
     const userId = req.params.userId;
-    // Find the user by ID and delete it
     const deletedUser = await User.findByIdAndDelete(userId);
     if (!deletedUser) {
       return res.status(404).json({ message: "User not found" });
@@ -205,7 +213,6 @@ app.put("/api/users/:userId/edit-email", async (req, res) => {
     const { userId } = req.params;
     const { email } = req.body;
 
-    // Find the user by ID and update the email
     const updatedUser = await User.findByIdAndUpdate(
       userId,
       { email },
@@ -222,46 +229,40 @@ app.put("/api/users/:userId/edit-email", async (req, res) => {
     return res.status(500).json({ message: "Internal server error" });
   }
 });
+
 app.post("/api/cart/add", async (req, res) => {
   try {
     console.log(req.userId);
     const { productId, quantity } = req.body;
 
-    // Check if the product already exists in the cart
     const existingCartItem = await Cart.findOne({
       productId,
       userId: req.userId,
     });
 
     if (existingCartItem) {
-      // If the product exists, update the quantity
       existingCartItem.quantity += quantity;
       await existingCartItem.save();
 
-      // Respond with a success message and the updated cart item
       return res.status(200).json({
         message: "Quantity updated successfully",
         cartItem: existingCartItem,
       });
     } else {
-      // If the product doesn't exist, create a new cart item instance
       const newCartItem = new Cart({
         userId: req.userId,
         productId,
         quantity,
       });
 
-      // Save the new cart item to the database
       await newCartItem.save();
 
-      // Respond with a success message and the new cart item
       return res.status(201).json({
         message: "Item added to cart successfully",
         cartItem: newCartItem,
       });
     }
   } catch (error) {
-    // Handle errors
     console.error("Error adding item to cart:", error);
     return res.status(500).json({ message: "Internal server error" });
   }
@@ -270,13 +271,9 @@ app.post("/api/cart/add", async (req, res) => {
 app.get("/api/cart", async (req, res) => {
   try {
     const userId = req.userId;
-    // Fetch all cart items from the database
     const cartItems = await Cart.find({ userId });
-
-    // Respond with cart items
     res.status(200).json(cartItems);
   } catch (error) {
-    // Handle errors
     console.error("Error fetching cart details:", error);
     res.status(500).json({ message: "Internal server error" });
   }
@@ -286,49 +283,37 @@ app.delete("/api/cart/remove/:productId", async (req, res) => {
   try {
     const { productId } = req.params;
 
-    // Find the cart item by productId
     const cartItem = await Cart.findOne({ productId });
 
     if (!cartItem) {
-      // If the cart item doesn't exist, return a 404 status code
       return res.status(404).json({ message: "Cart item not found" });
     }
 
-    // Remove the cart item from the database
     await cartItem.deleteOne();
 
-    // Respond with a success message
     return res.status(200).json({ message: "Cart item removed successfully" });
   } catch (error) {
-    // Handle errors
     console.error("Error removing item from cart:", error);
     return res.status(500).json({ message: "Internal server error" });
   }
 });
-//to clear the cart
+
 app.post("/api/cart/clear", async (req, res) => {
   try {
     const userId = req.userId;
-
-    // Delete all cart items for the user
     await Cart.deleteMany({ userId });
-
-    // Respond with a success message
     res.status(200).json({ message: "Cart cleared successfully" });
   } catch (error) {
-    // Handle errors
     console.error("Error clearing the cart:", error);
     res.status(500).json({ message: "Internal server error" });
   }
 });
 
-// Route to handle POST requests for storing address details
 app.post("/api/addresses", async (req, res) => {
   try {
     const { name, phoneNumber, pincode, locality, address, city, country } =
       req.body;
 
-    // Create a new address instance
     const newAddress = new Address({
       userId: req.userId,
       name,
@@ -340,10 +325,8 @@ app.post("/api/addresses", async (req, res) => {
       country,
     });
 
-    // Save the new address to the database
     await newAddress.save();
 
-    // Respond with a success message
     res
       .status(201)
       .json({ message: "Address added successfully", address: newAddress });
@@ -356,18 +339,14 @@ app.post("/api/addresses", async (req, res) => {
 app.get("/api/getaddress", async (req, res) => {
   try {
     const userId = req.userId;
-
-    // Query the database for addresses associated with the provided user ID
     const addresses = await Address.find({ userId });
 
-    // Check if addresses were found
     if (addresses.length === 0) {
       return res
         .status(404)
         .json({ message: "No addresses found for the user ID" });
     }
 
-    // Return the list of addresses as a response
     res.status(200).json({ addresses });
   } catch (error) {
     console.error("Error retrieving addresses:", error);
@@ -375,23 +354,19 @@ app.get("/api/getaddress", async (req, res) => {
   }
 });
 
-// Route to handle POST requests for storing order details
 app.post("/api/orders", async (req, res) => {
   try {
     const { address, cartItems, totalPrice } = req.body;
 
-    // Create a new order instance with product IDs
     const newOrder = new Order({
-      userId: req.userId, // Assuming you have userId available in the request
+      userId: req.userId,
       address,
-      products: cartItems, // Use the cartItems array directly
+      products: cartItems,
       totalPrice,
     });
 
-    // Save the new order to the database
     await newOrder.save();
 
-    // Respond with a success message and the newly created order
     res
       .status(201)
       .json({ message: "Order placed successfully", order: newOrder });
@@ -403,11 +378,8 @@ app.post("/api/orders", async (req, res) => {
 
 app.get("/api/getorder", async (req, res) => {
   try {
-    // Fetch orders for the user from the database based on userId
     const userId = req.userId;
     const orders = await Order.find({ userId });
-
-    // Respond with the orders
     res.status(200).json(orders);
   } catch (error) {
     console.error("Error fetching orders:", error);
@@ -415,13 +387,9 @@ app.get("/api/getorder", async (req, res) => {
   }
 });
 
-//api for getting all orderdetails
 app.get("/api/getallorders", async (req, res) => {
   try {
-    // Fetch all orders from the database
     const orders = await Order.find();
-
-    // Respond with the orders
     res.status(200).json(orders);
   } catch (error) {
     console.error("Error fetching orders:", error);
@@ -429,24 +397,20 @@ app.get("/api/getallorders", async (req, res) => {
   }
 });
 
-// Route to handle updating delivery status of an order
 app.put("/api/orders/:orderId/update-delivery-status", async (req, res) => {
   try {
     const orderId = req.params.orderId;
 
-    // Find the order by ID and update the delivery status
     const updatedOrder = await Order.findByIdAndUpdate(
       orderId,
-      { deliveryStatus: true }, // Set deliveryStatus to true
-      { new: true }, // Return the updated order
+      { deliveryStatus: true },
+      { new: true },
     );
 
-    // Check if the order exists and was updated successfully
     if (!updatedOrder) {
       return res.status(404).json({ message: "Order not found" });
     }
 
-    // Respond with the updated order
     res.status(200).json({
       message: "Delivery status updated successfully",
       order: updatedOrder,
@@ -457,8 +421,11 @@ app.put("/api/orders/:orderId/update-delivery-status", async (req, res) => {
   }
 });
 
-// Start the server
+// Call once on server start
 await fetchData();
+
+// ✅ Auto re-fetch products every 24 hours to keep images fresh
+setInterval(fetchData, 24 * 60 * 60 * 1000);
 
 app.listen(PORT, () => {
   console.log(`Server is running on http://localhost:${PORT}`);
