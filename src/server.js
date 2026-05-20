@@ -41,7 +41,6 @@ const userSchema = new Schema({
   password: String,
 });
 
-// Create a model based on the schema
 export const User = model("User", userSchema);
 
 // Define a schema for the product model
@@ -58,7 +57,6 @@ const productSchema = new Schema({
   },
 });
 
-// Create a model based on the schema
 export const Product = model("Product", productSchema);
 
 // Create schema for the cart model
@@ -69,7 +67,6 @@ const cartSchema = new Schema({
   quantity: Number,
 });
 
-// Create a model based on the schema
 export const Cart = model("Cart", cartSchema);
 
 const addressSchema = new mongoose.Schema({
@@ -84,7 +81,6 @@ const addressSchema = new mongoose.Schema({
   country: String,
 });
 
-// Create a model based on the schema
 const Address = mongoose.model("Address", addressSchema);
 
 // Define a schema for the order model
@@ -107,16 +103,29 @@ const orderSchema = new Schema(
   { timestamps: true },
 );
 
-// Create a model based on the schema
 const Order = model("Order", orderSchema);
 
 applyRouts(routs, app);
 
 const fetchData = async () => {
   try {
-    const response = await axios.get("https://fakestoreapi.com/products");
+    // ✅ Switched from fakestoreapi (blocked by Cloudflare) to dummyjson (free & reliable)
+    const response = await axios.get("https://dummyjson.com/products?limit=20");
+    const rawProducts = response.data.products;
 
-    const products = response.data;
+    // ✅ Map dummyjson fields to match your existing product schema
+    const products = rawProducts.map((p) => ({
+      id: p.id,
+      title: p.title,
+      price: p.price,
+      description: p.description,
+      category: p.category,
+      image: p.thumbnail,
+      rating: {
+        rate: p.rating,
+        count: p.stock,
+      },
+    }));
 
     // Delete old products
     await Product.deleteMany();
